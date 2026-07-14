@@ -39,20 +39,29 @@ private class A2UIProcessor {
 
     fun clear() { surfaces = emptyMap() }
 
+    fun replace(input: String) {
+        clear()
+        process(input)
+    }
+
     fun process(input: String) {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return
         val messages = when {
             trimmed.startsWith("[") -> json.parseToJsonElement(trimmed).jsonArray.toList()
-            trimmed.startsWith("{") && runCatching { json.parseToJsonElement(trimmed).jsonObject["messages"] }.getOrNull() != null ->
-                json.parseToJsonElement(trimmed).jsonObject["messages"]!!.jsonArray.toList()
-            else -> trimmed.lineSequence().filter { it.isNotBlank() }.map { json.parseToJsonElement(it) }.toList()
+            trimmed.startsWith("{") && runCatching {
+                json.parseToJsonElement(trimmed).jsonObject["messages"]
+            }.getOrNull() != null -> json.parseToJsonElement(trimmed).jsonObject["messages"]!!.jsonArray.toList()
+            else -> trimmed.lineSequence().filter { it.isNotBlank() }
+                .map { json.parseToJsonElement(it) }.toList()
         }
         messages.forEach { processMessage(it.jsonObject) }
     }
 
     private fun processMessage(message: JsonObject) {
-        require(message["version"]?.jsonPrimitive?.content == "v0.9") { "Only A2UI v0.9 is supported" }
+        require(message["version"]?.jsonPrimitive?.content == "v0.9") {
+            "Only A2UI v0.9 is supported"
+        }
         when {
             "createSurface" in message -> {
                 val body = message.getValue("createSurface").jsonObject
@@ -67,9 +76,9 @@ private class A2UIProcessor {
                 val body = message.getValue("updateComponents").jsonObject
                 val id = body.getValue("surfaceId").jsonPrimitive.content
                 val old = surfaces[id] ?: error("Unknown surface: $id")
-                val updates = body.getValue("components").jsonArray.associate { component ->
-                    val obj = component.jsonObject
-                    obj.getValue("id").jsonPrimitive.content to obj
+                val updates = body.getValue("components").jsonArray.associate { element ->
+                    val component = element.jsonObject
+                    component.getValue("id").jsonPrimitive.content to component
                 }
                 surfaces = surfaces + (id to old.copy(components = old.components + updates))
             }
@@ -82,7 +91,8 @@ private class A2UIProcessor {
                 surfaces = surfaces + (id to old.copy(data = setAtPath(old.data, path, value)))
             }
             "deleteSurface" in message -> {
-                val id = message.getValue("deleteSurface").jsonObject.getValue("surfaceId").jsonPrimitive.content
+                val id = message.getValue("deleteSurface").jsonObject
+                    .getValue("surfaceId").jsonPrimitive.content
                 surfaces = surfaces - id
             }
             else -> error("Unsupported A2UI message")
@@ -94,19 +104,65 @@ private class A2UIProcessor {
 @Composable
 private fun A2UIPlayground() {
     val processor = remember { A2UIProcessor() }
-    var source by remember { mutableStateOf(SAMPLE_JSONL) }
+    var selectedExample by remember { mutableStateOf(A2UI_EXAMPLES.first()) }
+    var source by remember { mutableStateOf(selectedExample.jsonl) }
+    var menuExpanded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var lastAction by remember { mutableStateOf("No action yet") }
 
-    LaunchedEffect(Unit) {
-        runCatching { processor.process(source) }.onFailure { error = it.message }
+    fun renderCurrent() {
+        error = null
+        runCatching { processor.replace(source) }.onFailure { error = it.message }
     }
+
+    LaunchedEffect(Unit) { renderCurrent() }
 
     Scaffold(topBar = { TopAppBar(title = { Text("A2UI Android Renderer") }) }) { padding ->
         Column(
             Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Text("Example gallery", style = MaterialTheme.typography.titleMedium)
+
+            ExposedDropdownMenuBox(
+                expanded = menuExpanded,
+                onExpandedChange = { menuExpanded = !menuExpanded }
+            ) {
+                OutlinedTextField(
+                    value = selectedExample.name,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Choose an example") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(menuExpanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    A2UI_EXAMPLES.forEach { example ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(example.name, fontWeight = FontWeight.SemiBold)
+                                    Text(example.description, style = MaterialTheme.typography.bodySmall)
+                                }
+                            },
+                            onClick = {
+                                selectedExample = example
+                                source = example.jsonl
+                                menuExpanded = false
+                                lastAction = "No action yet"
+                                error = null
+                                runCatching { processor.replace(example.jsonl) }
+                                    .onFailure { error = it.message }
+                            }
+                        )
+                    }
+                }
+            }
+
+            Text(selectedExample.description, style = MaterialTheme.typography.bodySmall)
             Text("A2UI v0.9 JSONL", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(
                 value = source,
@@ -115,12 +171,16 @@ private fun A2UIPlayground() {
                 label = { Text("Messages") }
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = {
+                Button(onClick = { renderCurrent() }) { Text("Render") }
+                OutlinedButton(onClick = {
+                    processor.clear()
                     error = null
-                    runCatching { processor.process(source) }.onFailure { error = it.message }
-                }) { Text("Render") }
-                OutlinedButton(onClick = { processor.clear(); error = null }) { Text("Clear") }
-                OutlinedButton(onClick = { source = SAMPLE_JSONL }) { Text("Sample") }
+                    lastAction = "No action yet"
+                }) { Text("Clear") }
+                OutlinedButton(onClick = {
+                    source = selectedExample.jsonl
+                    renderCurrent()
+                }) { Text("Reset") }
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             HorizontalDivider()
@@ -146,14 +206,16 @@ private fun SurfaceView(surface: SurfaceState, onAction: (JsonObject) -> Unit) {
 }
 
 @Composable
-private fun RenderComponent(surface: SurfaceState, component: JsonObject, onAction: (JsonObject) -> Unit) {
-    val type = component["component"]?.jsonPrimitive?.content ?: "Unknown"
-    when (type) {
+private fun RenderComponent(
+    surface: SurfaceState,
+    component: JsonObject,
+    onAction: (JsonObject) -> Unit
+) {
+    when (val type = component["component"]?.jsonPrimitive?.content ?: "Unknown") {
         "Text" -> {
-            val text = resolveString(component["text"], surface.data)
             val variant = component["variant"]?.jsonPrimitive?.content
             Text(
-                text,
+                resolveString(component["text"], surface.data),
                 style = when (variant) {
                     "h1" -> MaterialTheme.typography.headlineLarge
                     "h2" -> MaterialTheme.typography.headlineMedium
@@ -165,24 +227,27 @@ private fun RenderComponent(surface: SurfaceState, component: JsonObject, onActi
             )
         }
         "Column" -> Column(
-            modifier = Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = parseHorizontal(component["align"]?.jsonPrimitive?.content)
         ) { renderChildren(surface, component, onAction) }
         "Row" -> Row(
-            modifier = Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) { renderChildren(surface, component, onAction) }
         "Card" -> Card(Modifier.fillMaxWidth()) {
             component["child"]?.jsonPrimitive?.contentOrNull?.let { id ->
-                surface.components[id]?.let { child -> Box(Modifier.padding(16.dp)) { RenderComponent(surface, child, onAction) } }
+                surface.components[id]?.let { child ->
+                    Box(Modifier.padding(16.dp)) { RenderComponent(surface, child, onAction) }
+                }
             }
         }
         "Button" -> {
-            val labelId = component["child"]?.jsonPrimitive?.contentOrNull
+            val childId = component["child"]?.jsonPrimitive?.contentOrNull
             Button(onClick = { onAction(buildAction(surface, component)) }) {
-                if (labelId != null && surface.components[labelId] != null) RenderComponent(surface, surface.components.getValue(labelId), onAction)
+                val child = childId?.let(surface.components::get)
+                if (child != null) RenderComponent(surface, child, onAction)
                 else Text(resolveString(component["label"], surface.data).ifBlank { "Action" })
             }
         }
@@ -198,7 +263,9 @@ private fun RenderComponent(surface: SurfaceState, component: JsonObject, onActi
             )
         }
         "CheckBox" -> {
-            var checked by remember(component["id"]) { mutableStateOf(resolveBoolean(component["value"], surface.data)) }
+            var checked by remember(component["id"]) {
+                mutableStateOf(resolveBoolean(component["value"], surface.data))
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked, onCheckedChange = { checked = it })
                 Text(resolveString(component["label"], surface.data))
@@ -207,8 +274,13 @@ private fun RenderComponent(surface: SurfaceState, component: JsonObject, onActi
         "Slider" -> {
             val min = component["min"]?.jsonPrimitive?.floatOrNull ?: 0f
             val max = component["max"]?.jsonPrimitive?.floatOrNull ?: 100f
-            var value by remember(component["id"]) { mutableFloatStateOf(component["value"]?.jsonPrimitive?.floatOrNull ?: min) }
-            Column { Text(value.toInt().toString()); Slider(value, { value = it }, valueRange = min..max) }
+            var value by remember(component["id"]) {
+                mutableFloatStateOf(component["value"]?.jsonPrimitive?.floatOrNull ?: min)
+            }
+            Column {
+                Text(value.toInt().toString())
+                Slider(value, { value = it }, valueRange = min..max)
+            }
         }
         "Divider" -> HorizontalDivider()
         "Image" -> AsyncImage(
@@ -223,9 +295,15 @@ private fun RenderComponent(surface: SurfaceState, component: JsonObject, onActi
 }
 
 @Composable
-private fun renderChildren(surface: SurfaceState, component: JsonObject, onAction: (JsonObject) -> Unit) {
-    val ids = component["children"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
-    ids.forEach { id -> surface.components[id]?.let { RenderComponent(surface, it, onAction) } }
+private fun renderChildren(
+    surface: SurfaceState,
+    component: JsonObject,
+    onAction: (JsonObject) -> Unit
+) {
+    component["children"]?.jsonArray
+        ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+        .orEmpty()
+        .forEach { id -> surface.components[id]?.let { RenderComponent(surface, it, onAction) } }
 }
 
 private fun buildAction(surface: SurfaceState, component: JsonObject): JsonObject {
@@ -243,13 +321,15 @@ private fun buildAction(surface: SurfaceState, component: JsonObject): JsonObjec
 private fun resolveString(value: JsonElement?, data: JsonElement): String = when (value) {
     null, JsonNull -> ""
     is JsonPrimitive -> value.content
-    is JsonObject -> value["path"]?.jsonPrimitive?.content?.let { lookup(data, it) }?.jsonPrimitive?.contentOrNull ?: ""
+    is JsonObject -> value["path"]?.jsonPrimitive?.content
+        ?.let { lookup(data, it) }?.jsonPrimitive?.contentOrNull ?: ""
     else -> value.toString()
 }
 
 private fun resolveBoolean(value: JsonElement?, data: JsonElement): Boolean = when (value) {
     is JsonPrimitive -> value.booleanOrNull ?: false
-    is JsonObject -> value["path"]?.jsonPrimitive?.content?.let { lookup(data, it) }?.jsonPrimitive?.booleanOrNull ?: false
+    is JsonObject -> value["path"]?.jsonPrimitive?.content
+        ?.let { lookup(data, it) }?.jsonPrimitive?.booleanOrNull ?: false
     else -> false
 }
 
@@ -281,8 +361,3 @@ private fun parseHorizontal(value: String?): Alignment.Horizontal = when (value)
     "end" -> Alignment.End
     else -> Alignment.Start
 }
-
-private const val SAMPLE_JSONL = """{"version":"v0.9","createSurface":{"surfaceId":"demo","catalogId":"basic","sendDataModel":true}}
-{"version":"v0.9","updateDataModel":{"surfaceId":"demo","value":{"title":"Hello from A2UI","subtitle":"Rendered natively with Jetpack Compose"}}}
-{"version":"v0.9","updateComponents":{"surfaceId":"demo","components":[{"id":"root","component":"Column","children":["title","subtitle","name","agree","range","submit"]},{"id":"title","component":"Text","text":{"path":"/title"},"variant":"h2"},{"id":"subtitle","component":"Text","text":{"path":"/subtitle"},"variant":"caption"},{"id":"name","component":"TextField","label":"Your name","value":"Chinmay","variant":"shortText"},{"id":"agree","component":"CheckBox","label":"Enable Android renderer","value":true},{"id":"range","component":"Slider","min":0,"max":10,"value":7},{"id":"submitLabel","component":"Text","text":"Send action"},{"id":"submit","component":"Button","child":"submitLabel","action":{"name":"submit_demo","context":{"source":"android"}}}]}}
-"""
