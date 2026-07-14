@@ -41,5 +41,6 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
