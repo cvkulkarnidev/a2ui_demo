@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.serialization.json.*
@@ -42,7 +42,9 @@ private class A2UIProcessor {
     var surfaces by mutableStateOf<Map<String, SurfaceState>>(emptyMap())
         private set
 
-    fun clear() { surfaces = emptyMap() }
+    fun clear() {
+        surfaces = emptyMap()
+    }
 
     fun replace(input: String) {
         clear()
@@ -52,15 +54,19 @@ private class A2UIProcessor {
     fun process(input: String) {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return
+
         val messages = when {
             trimmed.startsWith("[") -> json.parseToJsonElement(trimmed).jsonArray.toList()
             trimmed.startsWith("{") && runCatching {
                 json.parseToJsonElement(trimmed).jsonObject["messages"]
             }.getOrNull() != null -> json.parseToJsonElement(trimmed)
                 .jsonObject.getValue("messages").jsonArray.toList()
-            else -> trimmed.lineSequence().filter { it.isNotBlank() }
-                .map { json.parseToJsonElement(it) }.toList()
+            else -> trimmed.lineSequence()
+                .filter { it.isNotBlank() }
+                .map { json.parseToJsonElement(it) }
+                .toList()
         }
+
         messages.forEach { processMessage(it.jsonObject) }
     }
 
@@ -68,6 +74,7 @@ private class A2UIProcessor {
         require(message["version"]?.jsonPrimitive?.content == "v0.9") {
             "Only A2UI v0.9 is supported"
         }
+
         when {
             "createSurface" in message -> {
                 val body = message.getValue("createSurface").jsonObject
@@ -78,6 +85,7 @@ private class A2UIProcessor {
                     sendDataModel = body["sendDataModel"]?.jsonPrimitive?.booleanOrNull ?: false
                 ))
             }
+
             "updateComponents" in message -> {
                 val body = message.getValue("updateComponents").jsonObject
                 val id = body.getValue("surfaceId").jsonPrimitive.content
@@ -88,6 +96,7 @@ private class A2UIProcessor {
                 }
                 surfaces = surfaces + (id to old.copy(components = old.components + updates))
             }
+
             "updateDataModel" in message -> {
                 val body = message.getValue("updateDataModel").jsonObject
                 val id = body.getValue("surfaceId").jsonPrimitive.content
@@ -96,11 +105,13 @@ private class A2UIProcessor {
                 val value = body["value"] ?: JsonNull
                 surfaces = surfaces + (id to old.copy(data = setAtPath(old.data, path, value)))
             }
+
             "deleteSurface" in message -> {
                 val id = message.getValue("deleteSurface").jsonObject
                     .getValue("surfaceId").jsonPrimitive.content
                 surfaces = surfaces - id
             }
+
             else -> error("Unsupported A2UI message")
         }
     }
@@ -119,7 +130,8 @@ private fun A2UIPlayground() {
 
     fun renderCurrent() {
         error = null
-        runCatching { processor.replace(source) }.onFailure { error = it.message }
+        runCatching { processor.replace(source) }
+            .onFailure { error = it.message }
     }
 
     LaunchedEffect(Unit) { renderCurrent() }
@@ -127,38 +139,32 @@ private fun A2UIPlayground() {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            CenterAlignedTopAppBar(
+            LargeTopAppBar(
                 title = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("A2UI Studio", style = MaterialTheme.typography.titleLarge)
-                        Text("Native Android renderer", style = MaterialTheme.typography.labelSmall)
+                    Column {
+                        Text("A2UI Studio", style = MaterialTheme.typography.headlineMedium)
+                        Text(
+                            "Native Android renderer",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
     ) { padding ->
         Column(
-            Modifier.padding(padding).padding(horizontal = 16.dp, vertical = 18.dp)
+            modifier = Modifier
+                .padding(padding)
+                .padding(horizontal = OneUiTokens.screenHorizontalPadding)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceXl)
         ) {
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Explore dynamic interfaces", style = MaterialTheme.typography.headlineSmall)
-                    Text(
-                        "Switch scenarios, inspect the generated surface, and view its A2UI IR when needed.",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-
             Text("Examples", style = MaterialTheme.typography.titleMedium)
+
             ExposedDropdownMenuBox(
                 expanded = menuExpanded,
                 onExpandedChange = { menuExpanded = !menuExpanded }
@@ -170,9 +176,10 @@ private fun A2UIPlayground() {
                     label = { Text("Choose a scenario") },
                     supportingText = { Text(selectedExample.description) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(menuExpanded) },
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(OneUiTokens.radiusLarge),
                     modifier = Modifier.menuAnchor().fillMaxWidth()
                 )
+
                 ExposedDropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false }
@@ -180,9 +187,13 @@ private fun A2UIPlayground() {
                     A2UI_EXAMPLES.forEach { example ->
                         DropdownMenuItem(
                             text = {
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceXs)) {
                                     Text(example.name, fontWeight = FontWeight.SemiBold)
-                                    Text(example.description, style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        example.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             },
                             onClick = {
@@ -201,10 +212,12 @@ private fun A2UIPlayground() {
 
             error?.let { UnsupportedMessage(it) }
 
-            Text("Rendered output", style = MaterialTheme.typography.titleMedium)
             if (processor.surfaces.isEmpty()) {
-                ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-                    Text("No active surface", Modifier.padding(24.dp))
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(OneUiTokens.radiusSurface)
+                ) {
+                    Text("No active surface", Modifier.padding(OneUiTokens.spaceXxl))
                 }
             } else {
                 processor.surfaces.values.forEach { surface ->
@@ -213,41 +226,56 @@ private fun A2UIPlayground() {
             }
 
             ElevatedCard(
-                Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(OneUiTokens.radiusLarge),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                 )
             ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier.padding(OneUiTokens.spaceXl),
+                    verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceMd)
+                ) {
                     Row(
-                        Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text("Developer tools", style = MaterialTheme.typography.titleSmall)
-                            Text("Inspect or edit the JSON IR", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "Inspect or edit the JSON IR",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         FilledTonalButton(onClick = { showJsonIr = !showJsonIr }) {
                             Text(if (showJsonIr) "Hide IR" else "Show IR")
                         }
                     }
+
                     if (showJsonIr) {
                         OutlinedTextField(
                             value = source,
                             onValueChange = { source = it },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp),
                             label = { Text("A2UI v0.9 JSONL") },
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(OneUiTokens.radiusMedium)
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(OneUiTokens.spaceSm),
+                            verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceSm)
+                        ) {
                             Button(onClick = { renderCurrent() }) { Text("Render") }
                             OutlinedButton(onClick = {
-                                processor.clear(); error = null; lastAction = "No action yet"
+                                processor.clear()
+                                error = null
+                                lastAction = "No action yet"
                             }) { Text("Clear") }
                             OutlinedButton(onClick = {
-                                source = selectedExample.jsonl; renderCurrent()
+                                source = selectedExample.jsonl
+                                renderCurrent()
                             }) { Text("Reset") }
                         }
                     }
@@ -255,15 +283,19 @@ private fun A2UIPlayground() {
             }
 
             Surface(
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(OneUiTokens.radiusMedium),
                 color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
             ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(
+                    Modifier.padding(OneUiTokens.spaceLg),
+                    verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceXs)
+                ) {
                     Text("Last action", style = MaterialTheme.typography.labelLarge)
                     Text(lastAction, style = MaterialTheme.typography.bodySmall)
                 }
             }
-            Spacer(Modifier.height(12.dp))
+
+            Spacer(Modifier.height(OneUiTokens.screenBottomPadding))
         }
     }
 }
@@ -274,26 +306,41 @@ private fun A2UISurfaceHost(surface: SurfaceState, onAction: (JsonObject) -> Uni
     val root = surface.components["root"]
 
     ElevatedCard(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(OneUiTokens.radiusSurface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp)
     ) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(
+            modifier = Modifier.padding(OneUiTokens.spaceXl),
+            verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceLg)
+        ) {
             Row(
-                Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text("Live surface", style = MaterialTheme.typography.labelLarge)
-                    Text(surface.id, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        surface.id,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 SuggestionChip(
                     onClick = {},
-                    label = { Text(catalog?.displayName ?: surface.catalogId) }
+                    label = {
+                        Text(
+                            catalog?.displayName ?: surface.catalogId,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 )
             }
+
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+
             when {
                 catalog == null -> UnsupportedMessage("Catalog '${surface.catalogId}' is not registered")
                 root == null -> {
@@ -306,6 +353,7 @@ private fun A2UISurfaceHost(surface: SurfaceState, onAction: (JsonObject) -> Uni
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RenderCatalogComponent(
     surface: SurfaceState,
@@ -341,82 +389,109 @@ private fun RenderCatalogComponent(
                 fontWeight = if (variant?.startsWith("h") == true) FontWeight.Bold else null
             )
         }
+
         "Column" -> Column(
-            Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(
-                component["spacing"]?.jsonPrimitive?.intOrNull?.dp ?: 10.dp
+                component["spacing"]?.jsonPrimitive?.intOrNull?.dp ?: OneUiTokens.spaceMd
             ),
             horizontalAlignment = parseHorizontal(component["align"]?.jsonPrimitive?.content)
-        ) { renderChildren(surface, component, catalog, onAction) }
-        "Row" -> Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = when (component["justify"]?.jsonPrimitive?.content) {
+        ) {
+            renderChildren(surface, component, catalog, onAction)
+        }
+
+        "Row" -> {
+            val horizontal = when (component["justify"]?.jsonPrimitive?.content) {
                 "spaceBetween" -> Arrangement.SpaceBetween
                 "center" -> Arrangement.Center
                 "end" -> Arrangement.End
-                else -> Arrangement.spacedBy(10.dp)
-            },
-            verticalAlignment = Alignment.CenterVertically
-        ) { renderChildren(surface, component, catalog, onAction) }
+                else -> Arrangement.spacedBy(OneUiTokens.spaceMd)
+            }
+
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = horizontal,
+                verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceMd),
+                maxItemsInEachRow = component["maxItems"]?.jsonPrimitive?.intOrNull ?: Int.MAX_VALUE
+            ) {
+                renderChildren(surface, component, catalog, onAction)
+            }
+        }
+
         "Card" -> {
             val variant = component["variant"]?.jsonPrimitive?.content
             val childId = component["child"]?.jsonPrimitive?.contentOrNull
             val cardContent: @Composable ColumnScope.() -> Unit = {
                 childId?.let(surface.components::get)?.let { child ->
-                    Box(Modifier.padding(18.dp)) {
+                    Box(Modifier.padding(OneUiTokens.spaceLg)) {
                         RenderCatalogComponent(surface, child, catalog, onAction)
                     }
                 }
             }
+
             when (variant) {
                 "outlined" -> OutlinedCard(
-                    Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(OneUiTokens.radiusLarge),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+                    ),
                     content = cardContent
                 )
+
                 "tonal" -> Card(
-                    Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(OneUiTokens.radiusLarge),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                     ),
                     content = cardContent
                 )
+
                 else -> ElevatedCard(
-                    Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(OneUiTokens.radiusLarge),
                     content = cardContent
                 )
             }
         }
+
         "Button" -> {
             val childId = component["child"]?.jsonPrimitive?.contentOrNull
             val buttonContent: @Composable RowScope.() -> Unit = {
                 val child = childId?.let(surface.components::get)
-                if (child != null) RenderCatalogComponent(surface, child, catalog, onAction)
-                else Text(resolveString(component["label"], surface.data).ifBlank { "Action" })
+                if (child != null) {
+                    RenderCatalogComponent(surface, child, catalog, onAction)
+                } else {
+                    Text(resolveString(component["label"], surface.data).ifBlank { "Action" })
+                }
             }
+
             when (component["variant"]?.jsonPrimitive?.content) {
                 "borderless" -> TextButton(
                     onClick = { onAction(buildAction(surface, component)) },
                     content = buttonContent
                 )
+
                 "secondary" -> FilledTonalButton(
                     onClick = { onAction(buildAction(surface, component)) },
                     content = buttonContent
                 )
+
                 "outlined" -> OutlinedButton(
                     onClick = { onAction(buildAction(surface, component)) },
                     content = buttonContent
                 )
+
                 else -> Button(
                     onClick = { onAction(buildAction(surface, component)) },
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(OneUiTokens.radiusMedium),
                     content = buttonContent
                 )
             }
         }
+
         "TextField" -> {
             val initial = resolveString(component["value"], surface.data)
             var value by remember(component["id"], initial) { mutableStateOf(initial) }
@@ -426,19 +501,23 @@ private fun RenderCatalogComponent(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(resolveString(component["label"], surface.data)) },
                 minLines = if (component["variant"]?.jsonPrimitive?.content == "longText") 3 else 1,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(OneUiTokens.radiusMedium)
             )
         }
+
         "CheckBox" -> {
             var checked by remember(component["id"]) {
                 mutableStateOf(resolveBoolean(component["value"], surface.data))
             }
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(OneUiTokens.radiusMedium),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = OneUiTokens.minTouchTarget)
+                        .padding(horizontal = OneUiTokens.spaceMd),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(checked, onCheckedChange = { checked = it })
@@ -446,41 +525,60 @@ private fun RenderCatalogComponent(
                 }
             }
         }
+
         "Slider" -> {
             val min = component["min"]?.jsonPrimitive?.floatOrNull ?: 0f
             val max = component["max"]?.jsonPrimitive?.floatOrNull ?: 100f
             var value by remember(component["id"]) {
                 mutableFloatStateOf(component["value"]?.jsonPrimitive?.floatOrNull ?: min)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceXs)) {
                 Text(
-                    component["label"]?.jsonPrimitive?.contentOrNull ?: value.toInt().toString(),
+                    resolveString(component["label"], surface.data)
+                        .ifBlank { value.toInt().toString() },
                     style = MaterialTheme.typography.labelLarge
                 )
                 Slider(value, { value = it }, valueRange = min..max)
             }
         }
-        "Divider" -> HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        "Divider" -> HorizontalDivider(
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+        )
+
         "Image" -> AsyncImage(
             model = resolveString(component["url"], surface.data),
             contentDescription = resolveString(component["alt"], surface.data),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp, max = 260.dp)
-                .clip(RoundedCornerShape(20.dp)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(
+                    min = OneUiTokens.heroMinHeight,
+                    max = OneUiTokens.heroMaxHeight
+                )
+                .clip(RoundedCornerShape(OneUiTokens.radiusLarge)),
             contentScale = ContentScale.Crop
         )
+
         "Icon" -> Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(OneUiTokens.radiusSmall),
             color = MaterialTheme.colorScheme.secondaryContainer
         ) {
             Text(
-                "● ${component["name"]?.jsonPrimitive?.content ?: "icon"}",
-                Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                style = MaterialTheme.typography.labelLarge
+                text = "● ${component["name"]?.jsonPrimitive?.content ?: "icon"}",
+                modifier = Modifier.padding(
+                    horizontal = OneUiTokens.spaceMd,
+                    vertical = OneUiTokens.spaceSm
+                ),
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+
         "Chip" -> {
             val tone = component["tone"]?.jsonPrimitive?.content
             Surface(
+                modifier = Modifier.widthIn(max = OneUiTokens.compactChipMaxWidth),
                 shape = RoundedCornerShape(50),
                 color = when (tone) {
                     "success" -> MaterialTheme.colorScheme.secondaryContainer
@@ -489,48 +587,79 @@ private fun RenderCatalogComponent(
                 }
             ) {
                 Text(
-                    resolveString(component["label"], surface.data),
-                    Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                    style = MaterialTheme.typography.labelLarge
+                    text = resolveString(component["label"], surface.data),
+                    modifier = Modifier.padding(
+                        horizontal = OneUiTokens.spaceMd,
+                        vertical = OneUiTokens.spaceSm
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
+
         "ProgressBar" -> {
-            val value = component["value"]?.jsonPrimitive?.floatOrNull?.coerceIn(0f, 1f) ?: 0f
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(resolveString(component["label"], surface.data), style = MaterialTheme.typography.labelLarge)
-                    Text("${(value * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
+            val value = component["value"]?.jsonPrimitive?.floatOrNull
+                ?.coerceIn(0f, 1f) ?: 0f
+            Column(verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceSm)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        resolveString(component["label"], surface.data),
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(OneUiTokens.spaceSm))
+                    Text(
+                        "${(value * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelLarge
+                    )
                 }
                 LinearProgressIndicator(
                     progress = { value },
-                    modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(50))
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(50))
                 )
             }
         }
-        "Metric" -> {
-            Surface(
-                modifier = Modifier.widthIn(min = 88.dp, max = 116.dp),
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+
+        "Metric" -> Surface(
+            modifier = Modifier
+                .widthIn(
+                    min = OneUiTokens.metricMinWidth,
+                    max = OneUiTokens.metricMaxWidth
+                )
+                .defaultMinSize(minHeight = 112.dp),
+            shape = RoundedCornerShape(OneUiTokens.radiusLarge),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+        ) {
+            Column(
+                modifier = Modifier.padding(OneUiTokens.spaceMd),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Column(
-                    Modifier.padding(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        resolveString(component["value"], surface.data),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        resolveString(component["label"], surface.data),
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Text(
+                    text = resolveString(component["value"], surface.data),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(OneUiTokens.spaceXs))
+                Text(
+                    text = resolveString(component["label"], surface.data),
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
@@ -540,11 +669,11 @@ private fun RenderCatalogComponent(
 private fun UnsupportedMessage(message: String) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(OneUiTokens.radiusMedium)
     ) {
         Text(
             message,
-            Modifier.fillMaxWidth().padding(14.dp),
+            Modifier.fillMaxWidth().padding(OneUiTokens.spaceLg),
             color = MaterialTheme.colorScheme.onErrorContainer
         )
     }
@@ -561,12 +690,16 @@ private fun renderChildren(
         ?.mapNotNull { it.jsonPrimitive.contentOrNull }
         .orEmpty()
         .forEach { id ->
-            surface.components[id]?.let { RenderCatalogComponent(surface, it, catalog, onAction) }
+            surface.components[id]?.let {
+                RenderCatalogComponent(surface, it, catalog, onAction)
+            }
         }
 }
 
 private fun buildAction(surface: SurfaceState, component: JsonObject): JsonObject {
-    val action = component["action"]?.jsonObject ?: buildJsonObject { put("name", "click") }
+    val action = component["action"]?.jsonObject
+        ?: buildJsonObject { put("name", "click") }
+
     return buildJsonObject {
         put("version", "v0.9")
         putJsonObject("action") {
@@ -581,19 +714,24 @@ private fun resolveString(value: JsonElement?, data: JsonElement): String = when
     null, JsonNull -> ""
     is JsonPrimitive -> value.content
     is JsonObject -> value["path"]?.jsonPrimitive?.content
-        ?.let { lookup(data, it) }?.jsonPrimitive?.contentOrNull ?: ""
+        ?.let { lookup(data, it) }
+        ?.jsonPrimitive
+        ?.contentOrNull ?: ""
     else -> value.toString()
 }
 
 private fun resolveBoolean(value: JsonElement?, data: JsonElement): Boolean = when (value) {
     is JsonPrimitive -> value.booleanOrNull ?: false
     is JsonObject -> value["path"]?.jsonPrimitive?.content
-        ?.let { lookup(data, it) }?.jsonPrimitive?.booleanOrNull ?: false
+        ?.let { lookup(data, it) }
+        ?.jsonPrimitive
+        ?.booleanOrNull ?: false
     else -> false
 }
 
 private fun lookup(root: JsonElement, path: String): JsonElement? {
     if (path.isBlank() || path == "/") return root
+
     return path.trim('/').split('/').fold(root as JsonElement?) { current, key ->
         when (current) {
             is JsonObject -> current[key]
@@ -606,12 +744,18 @@ private fun lookup(root: JsonElement, path: String): JsonElement? {
 private fun setAtPath(root: JsonElement, path: String, value: JsonElement): JsonElement {
     if (path.isBlank() || path == "/") return value
     val keys = path.trim('/').split('/')
+
     fun update(current: JsonElement?, index: Int): JsonElement {
         if (index == keys.size) return value
         val key = keys[index]
         val obj = current as? JsonObject ?: buildJsonObject {}
-        return JsonObject(obj.toMutableMap().apply { put(key, update(obj[key], index + 1)) })
+        return JsonObject(
+            obj.toMutableMap().apply {
+                put(key, update(obj[key], index + 1))
+            }
+        )
     }
+
     return update(root, 0)
 }
 
