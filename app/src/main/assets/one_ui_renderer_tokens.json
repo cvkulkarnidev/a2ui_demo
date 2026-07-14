@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "A2UI Android One UI-inspired tokens",
+  "version": "1.0.0",
+  "source": "Renderer-owned interpretation; not an official Samsung design-token file",
+  "principles": {
+    "largeHeaders": true,
+    "oneHandedReach": true,
+    "contentGrouping": true,
+    "adaptiveDarkMode": true,
+    "responsiveLayouts": true
+  },
+  "spacingDp": {
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 20,
+    "xxl": 24,
+    "section": 28
+  },
+  "radiusDp": {
+    "small": 12,
+    "medium": 16,
+    "large": 22,
+    "surface": 28,
+    "pill": 999
+  },
+  "layout": {
+    "screenHorizontalPaddingDp": 20,
+    "screenBottomPaddingDp": 32,
+    "minimumTouchTargetDp": 48,
+    "metricMinimumWidthDp": 92,
+    "metricMaximumWidthDp": 148,
+    "compactBreakpointDp": 360,
+    "maxContentWidthDp": 720
+  },
+  "typographySp": {
+    "largeTitle": 32,
+    "title": 24,
+    "section": 19,
+    "body": 16,
+    "caption": 13
+  },
+  "behavior": {
+    "wrapHorizontalGroups": true,
+    "preventTextOverlap": true,
+    "singleLineCompactChips": true,
+    "putPrimaryActionsNearBottom": true
+  }
+}
