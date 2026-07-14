@@ -361,7 +361,7 @@ private fun RenderCatalogComponent(
         "Card" -> {
             val variant = component["variant"]?.jsonPrimitive?.content
             val childId = component["child"]?.jsonPrimitive?.contentOrNull
-            val content: @Composable () -> Unit = {
+            val cardContent: @Composable ColumnScope.() -> Unit = {
                 childId?.let(surface.components::get)?.let { child ->
                     Box(Modifier.padding(18.dp)) {
                         RenderCatalogComponent(surface, child, catalog, onAction)
@@ -373,7 +373,7 @@ private fun RenderCatalogComponent(
                     Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
-                    content = content
+                    content = cardContent
                 )
                 "tonal" -> Card(
                     Modifier.fillMaxWidth(),
@@ -381,30 +381,39 @@ private fun RenderCatalogComponent(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                     ),
-                    content = content
+                    content = cardContent
                 )
                 else -> ElevatedCard(
                     Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    content = content
+                    content = cardContent
                 )
             }
         }
         "Button" -> {
             val childId = component["child"]?.jsonPrimitive?.contentOrNull
-            val label: @Composable () -> Unit = {
+            val buttonContent: @Composable RowScope.() -> Unit = {
                 val child = childId?.let(surface.components::get)
                 if (child != null) RenderCatalogComponent(surface, child, catalog, onAction)
                 else Text(resolveString(component["label"], surface.data).ifBlank { "Action" })
             }
             when (component["variant"]?.jsonPrimitive?.content) {
-                "borderless" -> TextButton(onClick = { onAction(buildAction(surface, component)) }, content = label)
-                "secondary" -> FilledTonalButton(onClick = { onAction(buildAction(surface, component)) }, content = label)
-                "outlined" -> OutlinedButton(onClick = { onAction(buildAction(surface, component)) }, content = label)
+                "borderless" -> TextButton(
+                    onClick = { onAction(buildAction(surface, component)) },
+                    content = buttonContent
+                )
+                "secondary" -> FilledTonalButton(
+                    onClick = { onAction(buildAction(surface, component)) },
+                    content = buttonContent
+                )
+                "outlined" -> OutlinedButton(
+                    onClick = { onAction(buildAction(surface, component)) },
+                    content = buttonContent
+                )
                 else -> Button(
                     onClick = { onAction(buildAction(surface, component)) },
                     shape = RoundedCornerShape(14.dp),
-                    content = label
+                    content = buttonContent
                 )
             }
         }
@@ -501,7 +510,7 @@ private fun RenderCatalogComponent(
         }
         "Metric" -> {
             Surface(
-                modifier = Modifier.weight(1f, fill = true),
+                modifier = Modifier.widthIn(min = 88.dp, max = 116.dp),
                 shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
             ) {
