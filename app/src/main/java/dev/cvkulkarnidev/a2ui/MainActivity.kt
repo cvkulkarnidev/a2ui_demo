@@ -90,6 +90,7 @@ private class A2UIProcessor {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun A2UIPlayground() {
     val processor = remember { A2UIProcessor() }
