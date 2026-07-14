@@ -29,7 +29,10 @@ val BASIC_ANDROID_CATALOG = A2UICatalog(
         "Slider",
         "Divider",
         "Image",
-        "Icon"
+        "Icon",
+        "Chip",
+        "ProgressBar",
+        "Metric"
     )
 )
 
