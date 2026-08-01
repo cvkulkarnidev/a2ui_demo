@@ -1,6 +1,6 @@
 # A2UI Android Renderer
 
-A native Android proof-of-concept renderer for the **A2UI v0.9** protocol, implemented with Kotlin and Jetpack Compose.
+A native Android proof-of-concept renderer for the **A2UI v0.9 / v0.9.1** protocol family, implemented with Kotlin and Jetpack Compose.
 
 ## Current capabilities
 
@@ -8,9 +8,10 @@ A native Android proof-of-concept renderer for the **A2UI v0.9** protocol, imple
 - Parses A2UI JSONL, JSON arrays, and `{ "messages": [...] }` wrappers.
 - Handles `createSurface`, `updateComponents`, `updateDataModel`, and `deleteSurface`.
 - Maintains independent component and data-model state for each surface.
-- Resolves literal values and JSON-pointer-style `{ "path": "/..." }` bindings.
-- Renders `Text`, `Column`, `Row`, `Card`, `Button`, `TextField`, `CheckBox`, `Slider`, `Divider`, `Image`, and a basic `Icon` fallback.
-- Produces A2UI v0.9 action payloads and includes the data model when `sendDataModel` is enabled.
+- Resolves literal values and JSON Pointer `{ "path": "/..." }` bindings, including scoped bindings for simple list templates.
+- Renders the official basic catalog set used by the reference renderers: `Text`, `Image`, `Icon`, `Row`, `Column`, `List`, `Card`, `Tabs`, `Modal`, `Divider`, `Button`, `TextField`, `CheckBox`, `ChoicePicker`, `Slider`, and `DateTimeInput`.
+- Keeps Android-specific extension components for richer local demos: `Chip`, `ProgressBar`, and `Metric`.
+- Performs local two-way data binding for form controls and sends the surface data model metadata when `sendDataModel` is enabled.
 - Includes an editable built-in sample for testing directly on a phone.
 
 ## Install on an Android device
@@ -34,12 +35,12 @@ Android may ask you to allow installation from your browser or file manager.
 
 ## Using the playground
 
-The app opens with a valid A2UI v0.9 JSONL example. Edit the messages and press **Render**. Pressing the rendered button displays the generated action payload at the bottom of the screen.
+The app opens with a valid A2UI JSONL example. Edit the messages and press **Render**. Pressing the rendered button displays the generated action payload at the bottom of the screen.
 
 The **LLM to A2UI** panel demonstrates the intended assistant flow:
 
 1. The LLM returns a normal plain-language answer.
-2. `A2UIResponseConverter` converts that answer into A2UI v0.9 JSONL.
+2. `A2UIResponseConverter` converts that answer into A2UI v0.9/v0.9.1-compatible JSONL.
 3. `A2UIProcessor` validates and applies the messages.
 4. The catalog renderer materializes the surface with native Compose components.
 
@@ -49,8 +50,8 @@ The renderer expects a component with ID `root` before displaying a surface.
 
 ## Scope
 
-This is a working vertical slice, not yet a complete production renderer. The next milestones are real LLM transport, dynamic list templates, complete layout semantics, two-way form bindings, validation functions, choice pickers, tabs/modals/media, streaming transports, schema validation, and a reusable renderer library module.
+This is a working vertical slice, not yet a complete production renderer. It now follows the same main renderer responsibilities as the upstream A2UI renderers: message processing, surface state, component catalog resolution, data model updates, and local control bindings. Remaining production milestones are full schema validation, complete renderer capability metadata, validation/function execution, richer template scopes, streaming transport, visual parity tests, and a reusable renderer library module.
 
 ## Protocol source
 
-Implementation follows the official A2UI renderer guidance and v0.9 server-to-client message schema from the `a2ui-project/a2ui` repository.
+Implementation follows the official A2UI renderer guidance, v0.9/v0.9.1 server-to-client message schema, and basic catalog from the `a2ui-project/a2ui` repository.
