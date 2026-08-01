@@ -836,6 +836,8 @@ private fun RenderCatalogComponent(
             )
         }
 
+        "Chart" -> InteractiveChart(component, surface.data, scopeData)
+
         "Chip" -> {
             val tone = component["tone"]?.jsonPrimitive?.content
             Surface(
