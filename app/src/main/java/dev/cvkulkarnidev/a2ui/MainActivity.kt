@@ -407,7 +407,6 @@ private fun AgentPipelinePanel(
             }
         }
 
-        else -> Unit
     }
 }
 
@@ -465,6 +464,7 @@ private fun A2UISurfaceHost(
                 else -> RenderCatalogComponent(surface, root, catalog, onAction, onDataChange)
             }
         }
+
     }
 }
 
@@ -987,6 +987,8 @@ private fun renderChildList(
                 }
             }
         }
+
+        else -> Unit
     }
 }
 
