@@ -8,7 +8,7 @@ The production goal of this project is not to select a prebuilt screen template.
 User query
   -> Basic LLM response
   -> A2UI converter
-  -> A2UI v0.9 JSONL messages
+  -> A2UI v0.9/v0.9.1 JSONL messages
   -> Surface and data-model processor
   -> Catalog component resolution
   -> Native Jetpack Compose UI
@@ -42,6 +42,8 @@ The first LLM call can stay conversational and cheap. The renderer does not need
 - Maintains surfaces, component maps, and data models.
 - Resolves every component through a registered catalog.
 - Recursively builds the component tree from IDs.
+- Supports the official basic catalog components used by the maintained A2UI renderers, plus small Android-only extensions for demo polish.
+- Applies JSON Pointer updates, scoped list rendering, and local two-way bindings for input controls.
 - Applies responsive native layout rules.
 - Loads remote images supplied through the IR.
 - Emits protocol action payloads for the backend.
@@ -75,8 +77,8 @@ The renderer must accept image URLs from any valid agent response and must not m
 1. Add HTTP/SSE transport for user queries and streaming A2UI messages.
 2. Advertise Android catalog capabilities to the agent.
 3. Add a model-backed converter for richer layout planning.
-4. Add two-way data binding for form controls.
-5. Add generic list/template rendering for repeated search results.
+4. Advertise renderer capabilities, including the Android catalog aliases.
+5. Add validation functions and renderer-side expression execution.
 6. Add loading, empty, image-error, and retry states.
 7. Split component implementations into independent catalog renderer files.
-8. Add schema validation and protocol conformance tests.
+8. Add schema validation, visual parity fixtures, and protocol conformance tests.
