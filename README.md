@@ -4,6 +4,7 @@ A native Android proof-of-concept renderer for the **A2UI v0.9** protocol, imple
 
 ## Current capabilities
 
+- Runs a local **LLM -> A2UI -> renderer** pipeline demo.
 - Parses A2UI JSONL, JSON arrays, and `{ "messages": [...] }` wrappers.
 - Handles `createSurface`, `updateComponents`, `updateDataModel`, and `deleteSurface`.
 - Maintains independent component and data-model state for each surface.
@@ -35,11 +36,20 @@ Android may ask you to allow installation from your browser or file manager.
 
 The app opens with a valid A2UI v0.9 JSONL example. Edit the messages and press **Render**. Pressing the rendered button displays the generated action payload at the bottom of the screen.
 
+The **LLM to A2UI** panel demonstrates the intended assistant flow:
+
+1. The LLM returns a normal plain-language answer.
+2. `A2UIResponseConverter` converts that answer into A2UI v0.9 JSONL.
+3. `A2UIProcessor` validates and applies the messages.
+4. The catalog renderer materializes the surface with native Compose components.
+
+The included `LocalDraftLlmClient` is a no-key local stub so the Android project builds anywhere. Replace it with a Gemini/OpenAI/local llama.cpp adapter when wiring a real model.
+
 The renderer expects a component with ID `root` before displaying a surface.
 
 ## Scope
 
-This is a working vertical slice, not yet a complete production renderer. The next milestones are dynamic list templates, complete layout semantics, two-way form bindings, validation functions, choice pickers, tabs/modals/media, streaming transports, schema validation, and a reusable renderer library module.
+This is a working vertical slice, not yet a complete production renderer. The next milestones are real LLM transport, dynamic list templates, complete layout semantics, two-way form bindings, validation functions, choice pickers, tabs/modals/media, streaming transports, schema validation, and a reusable renderer library module.
 
 ## Protocol source
 
