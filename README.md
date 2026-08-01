@@ -11,7 +11,7 @@ A native Android proof-of-concept renderer for the **A2UI v0.9 / v0.9.1** protoc
 - Resolves literal values and JSON Pointer `{ "path": "/..." }` bindings, including scoped bindings for simple list templates.
 - Renders the official basic catalog set used by the reference renderers: `Text`, `Image`, `Icon`, `Row`, `Column`, `List`, `Card`, `Tabs`, `Modal`, `Divider`, `Button`, `TextField`, `CheckBox`, `ChoicePicker`, `Slider`, and `DateTimeInput`.
 - Keeps Android-specific extension components for richer local demos: `Chart`, `Chip`, `ProgressBar`, and `Metric`.
-- Supports chart interconversion by long-pressing a rendered chart. A chart can cycle through compatible modes such as bar/histogram, line, pie/donut-style composition, and table.
+- Supports chart interconversion by long-pressing a rendered chart or tapping **Convert**. The chart opens a picker for compatible modes such as bar/histogram, line, pie/donut-style composition, and table.
 - Performs local two-way data binding for form controls and sends the surface data model metadata when `sendDataModel` is enabled.
 - Includes an editable built-in sample for testing directly on a phone.
 
@@ -38,7 +38,7 @@ Android may ask you to allow installation from your browser or file manager.
 
 The app opens with a valid A2UI JSONL example. Edit the messages and press **Render**. Pressing the rendered button displays the generated action payload at the bottom of the screen.
 
-The dropdown includes chart-heavy A2UI IR samples. Open **Chart lab: revenue** or **Chart lab: survey**, then long-press a chart to switch between the formats declared in that chart's `modes` property.
+The dropdown includes chart-heavy A2UI IR samples. Open **Chart lab: revenue** or **Chart lab: survey**, then long-press a chart or tap **Convert** to choose one of the formats declared in that chart's `modes` property.
 
 The **LLM to A2UI** panel demonstrates the intended assistant flow:
 
