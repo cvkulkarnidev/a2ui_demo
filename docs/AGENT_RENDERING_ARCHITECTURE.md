@@ -44,6 +44,7 @@ The first LLM call can stay conversational and cheap. The renderer does not need
 - Recursively builds the component tree from IDs.
 - Supports the official basic catalog components used by the maintained A2UI renderers, plus small Android-only extensions for demo polish.
 - Applies JSON Pointer updates, scoped list rendering, and local two-way bindings for input controls.
+- Renders `Chart` extension components from data arrays and lets the user long-press to cycle through declared compatible views.
 - Applies responsive native layout rules.
 - Loads remote images supplied through the IR.
 - Emits protocol action payloads for the backend.
@@ -71,6 +72,32 @@ The first LLM call can stay conversational and cheap. The renderer does not need
 ```
 
 The renderer must accept image URLs from any valid agent response and must not map image content to a known scenario.
+
+## Chart conversion IR
+
+Charts are Android catalog extensions. They use the same data-model binding style as other A2UI components:
+
+```json
+{
+  "id": "trend",
+  "component": "Chart",
+  "title": "Monthly revenue",
+  "data": { "path": "/monthly" },
+  "labelKey": "month",
+  "valueKey": "revenue",
+  "chartType": "bar",
+  "modes": ["bar", "line", "table"]
+}
+```
+
+Useful conversions:
+
+- Category totals: `bar`, `pie`, `table`.
+- Ordered trends: `bar`, `line`, `table`.
+- Distributions: `bar`/`histogram`, `pie`, `table`.
+- Small categorical comparisons: `pie`, `bar`, `table`.
+
+The agent should declare only meaningful modes in `modes`. The renderer cycles through those modes on long press.
 
 ## Next implementation milestones
 
