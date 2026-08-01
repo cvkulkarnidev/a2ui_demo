@@ -121,8 +121,13 @@ private class A2UIProcessor {
 @Composable
 private fun A2UIPlayground() {
     val processor = remember { A2UIProcessor() }
+    val llmClient = remember { LocalDraftLlmClient() }
     var selectedExample by remember { mutableStateOf(A2UI_EXAMPLES.first()) }
     var source by remember { mutableStateOf(selectedExample.jsonl) }
+    var prompt by remember {
+        mutableStateOf("Explain how GRPO reward design works for UI generation in simple terms.")
+    }
+    var basicLlmResponse by remember { mutableStateOf("") }
     var menuExpanded by remember { mutableStateOf(false) }
     var showJsonIr by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -163,6 +168,25 @@ private fun A2UIPlayground() {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceXl)
         ) {
+            AgentPipelinePanel(
+                prompt = prompt,
+                basicLlmResponse = basicLlmResponse,
+                onPromptChange = { prompt = it },
+                onRun = {
+                    error = null
+                    lastAction = "No action yet"
+                    runCatching {
+                        A2UIResponseConverter.run(prompt, llmClient)
+                    }.onSuccess { result ->
+                        basicLlmResponse = result.basicResponse
+                        source = result.a2uiJsonl
+                        processor.replace(result.a2uiJsonl)
+                    }.onFailure {
+                        error = it.message
+                    }
+                }
+            )
+
             Text("Examples", style = MaterialTheme.typography.titleMedium)
 
             ExposedDropdownMenuBox(
@@ -296,6 +320,76 @@ private fun A2UIPlayground() {
             }
 
             Spacer(Modifier.height(OneUiTokens.screenBottomPadding))
+        }
+    }
+}
+
+@Composable
+private fun AgentPipelinePanel(
+    prompt: String,
+    basicLlmResponse: String,
+    onPromptChange: (String) -> Unit,
+    onRun: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(OneUiTokens.radiusSurface)
+    ) {
+        Column(
+            modifier = Modifier.padding(OneUiTokens.spaceXl),
+            verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceMd)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("LLM to A2UI", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Plain answer first, structured native surface second",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                SuggestionChip(onClick = {}, label = { Text("Pipeline") })
+            }
+
+            OutlinedTextField(
+                value = prompt,
+                onValueChange = onPromptChange,
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                label = { Text("Talk to the LLM") },
+                shape = RoundedCornerShape(OneUiTokens.radiusLarge)
+            )
+
+            Button(
+                onClick = onRun,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(OneUiTokens.radiusMedium)
+            ) {
+                Text("Generate basic response -> Convert to A2UI -> Render")
+            }
+
+            if (basicLlmResponse.isNotBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(OneUiTokens.radiusLarge),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(OneUiTokens.spaceLg),
+                        verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceXs)
+                    ) {
+                        Text("Basic LLM output", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            basicLlmResponse,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
 }
