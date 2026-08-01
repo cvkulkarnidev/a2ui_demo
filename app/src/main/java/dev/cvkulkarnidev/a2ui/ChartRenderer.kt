@@ -41,10 +41,53 @@ fun InteractiveChart(
     var selectedModeIndex by remember(component["id"]?.jsonPrimitive?.content, modes) {
         mutableIntStateOf(0)
     }
+    var showConversionOptions by remember(component["id"]?.jsonPrimitive?.content, modes) {
+        mutableStateOf(false)
+    }
     val safeMode = modes.getOrElse(selectedModeIndex.coerceIn(0, modes.lastIndex.coerceAtLeast(0))) {
         "table"
     }
     val palette = chartPalette()
+
+    if (showConversionOptions) {
+        AlertDialog(
+            onDismissRequest = { showConversionOptions = false },
+            title = { Text("Convert chart") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(OneUiTokens.spaceXs)) {
+                    modes.forEachIndexed { index, mode ->
+                        TextButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                selectedModeIndex = index
+                                showConversionOptions = false
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(mode.chartModeLabel())
+                                if (mode == safeMode) {
+                                    Text(
+                                        "Current",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showConversionOptions = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -69,14 +112,20 @@ fun InteractiveChart(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Long press to switch: ${modes.joinToString(" / ")}",
+                        text = if (modes.size > 1) "Long press chart to convert view" else safeMode.chartModeLabel(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                AssistChip(onClick = {}, label = { Text(safeMode.titlecase()) })
+                AssistChip(
+                    enabled = modes.size > 1,
+                    onClick = {
+                        if (modes.size > 1) showConversionOptions = true
+                    },
+                    label = { Text("Convert") }
+                )
             }
 
             if (points.isEmpty()) {
@@ -92,8 +141,8 @@ fun InteractiveChart(
                         .pointerInput(modes) {
                             detectTapGestures(
                                 onLongPress = {
-                                    if (modes.isNotEmpty()) {
-                                        selectedModeIndex = (selectedModeIndex + 1) % modes.size
+                                    if (modes.size > 1) {
+                                        showConversionOptions = true
                                     }
                                 }
                             )
@@ -343,6 +392,14 @@ private fun String.normalizeMode(): String = when (lowercase()) {
 
 private fun String.takeIfValidMode(): String? =
     takeIf { it in setOf("pie", "bar", "line", "table") }
+
+private fun String.chartModeLabel(): String = when (this) {
+    "pie" -> "Pie chart"
+    "bar" -> "Bar / histogram"
+    "line" -> "Line chart"
+    "table" -> "Table"
+    else -> titlecase()
+}
 
 private fun resolveJson(value: JsonElement?, data: JsonElement, scopeData: JsonElement): JsonElement? = when (value) {
     is JsonObject -> value["path"]?.jsonPrimitive?.contentOrNull
