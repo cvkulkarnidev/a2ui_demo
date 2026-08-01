@@ -22,11 +22,16 @@ val BASIC_ANDROID_CATALOG = A2UICatalog(
         "Text",
         "Column",
         "Row",
+        "List",
         "Card",
+        "Tabs",
+        "Modal",
         "Button",
         "TextField",
         "CheckBox",
+        "ChoicePicker",
         "Slider",
+        "DateTimeInput",
         "Divider",
         "Image",
         "Icon",
@@ -37,5 +42,7 @@ val BASIC_ANDROID_CATALOG = A2UICatalog(
 )
 
 val A2UI_CATALOGS: Map<String, A2UICatalog> = mapOf(
-    BASIC_ANDROID_CATALOG.id to BASIC_ANDROID_CATALOG
+    BASIC_ANDROID_CATALOG.id to BASIC_ANDROID_CATALOG,
+    "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json" to BASIC_ANDROID_CATALOG,
+    "https://a2ui.org/specification/v0_9_1/catalogs/basic/catalog.json" to BASIC_ANDROID_CATALOG
 )
