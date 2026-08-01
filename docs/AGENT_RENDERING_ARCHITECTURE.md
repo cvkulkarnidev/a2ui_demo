@@ -6,7 +6,8 @@ The production goal of this project is not to select a prebuilt screen template.
 
 ```text
 User query
-  -> Agent response
+  -> Basic LLM response
+  -> A2UI converter
   -> A2UI v0.9 JSONL messages
   -> Surface and data-model processor
   -> Catalog component resolution
@@ -15,15 +16,25 @@ User query
   -> Agent/backend
 ```
 
+The first LLM call can stay conversational and cheap. The renderer does not need the model to emit final UI code. Instead, the plain answer is treated as semantic content, then a converter or second model pass produces compact A2UI IR that the Android client can validate and render.
+
 ## Responsibilities
 
-### Agent or conversion service
+### Basic LLM adapter
+
+- Produces the first normal answer to the user query.
+- Can be local, remote, streaming, or offline.
+- Should not know about Android component implementation details.
+- May return markdown-like plain text, bullets, numbers, and suggested actions.
+
+### A2UI conversion service
 
 - Understands the user query and domain response.
 - Chooses suitable components from the client-advertised catalog.
 - Produces `createSurface`, `updateDataModel`, `updateComponents`, and `deleteSurface` messages.
 - Supplies content such as text, image URLs, form values, progress values, actions, and data bindings.
 - Must not depend on bundled example names or Android-specific screen templates.
+- Can be deterministic for simple answers or model-assisted for richer UI planning.
 
 ### Android renderer
 
@@ -39,6 +50,10 @@ User query
 ### Bundled examples
 
 `A2UIExamples.kt` contains test fixtures only. They exercise the renderer while no agent endpoint is connected. They are not the mechanism used to produce production screens.
+
+### Local pipeline demo
+
+`LocalDraftLlmClient` and `A2UIResponseConverter` demonstrate the runtime contract without requiring an API key. The local client should be replaced by a real LLM adapter, while the converter can remain as a deterministic fallback for simple answers.
 
 ## Generic image IR
 
@@ -59,8 +74,9 @@ The renderer must accept image URLs from any valid agent response and must not m
 
 1. Add HTTP/SSE transport for user queries and streaming A2UI messages.
 2. Advertise Android catalog capabilities to the agent.
-3. Add two-way data binding for form controls.
-4. Add generic list/template rendering for repeated search results.
-5. Add loading, empty, image-error, and retry states.
-6. Split component implementations into independent catalog renderer files.
-7. Add schema validation and protocol conformance tests.
+3. Add a model-backed converter for richer layout planning.
+4. Add two-way data binding for form controls.
+5. Add generic list/template rendering for repeated search results.
+6. Add loading, empty, image-error, and retry states.
+7. Split component implementations into independent catalog renderer files.
+8. Add schema validation and protocol conformance tests.
