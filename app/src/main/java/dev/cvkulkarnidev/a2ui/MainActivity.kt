@@ -406,6 +406,8 @@ private fun AgentPipelinePanel(
                 }
             }
         }
+
+        else -> Unit
     }
 }
 
